@@ -1,3 +1,8 @@
+# git
+
+git config --global user.email "email"
+git config --global user.name "username"
+
 
 # Ambiente Virtual 
 python3 -m venv venv
