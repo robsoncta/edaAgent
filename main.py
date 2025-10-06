@@ -2,7 +2,7 @@ from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from agents.coordenador import coordenador_agent
+from agents.agent.agent.coordenador import coordenador_agent
 from utils.config import Config
 
 class EDASystem:

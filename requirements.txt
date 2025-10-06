@@ -1,9 +1,9 @@
-fastapi[standard]
-uvicorn[standard]
+#fastapi
+uvicorn
 google-adk
 google-genai
 python-dotenv
-Langfuse
+#Langfuse
 pandas
 numpy
 openpyxl

@@ -1,16 +1,15 @@
-from google.adk.agents import LlmAgent
+from google.adk.agent import Agent 
 from google.adk.tools import AgentTool
-from agents.data_explorer import data_explorer_agent
-from agents.visualization_expert import visualization_expert_agent
+from agents.agent.agent.data_explorer import data_explorer_agent
+from agents.agent.agent.visualization_expert import visualization_expert_agent
 from tools.csv_loader import load_csv
 from tools.data_analyzer import analyze_data
 from tools.chart_generator import generate_chart
 from tools.memory_manager import manage_memory
 
-def coordenador_agent(model):
-    return LlmAgent(
+root_agent=LlmAgent(
         name="coordenador",
-        model=model,
+        model="gemini-2.5-pro",
         description="Orquestra o fluxo de análise, delega tasks para agentes especializados e consolida resultados.",
         instruction="""
 Você é o agente coordenador para análise exploratória de dados.
