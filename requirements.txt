@@ -6,6 +6,7 @@ python-dotenv
 #Langfuse
 pandas
 numpy
+scipy
 openpyxl
 xlsxwriter
 streamlit==1.32.0
