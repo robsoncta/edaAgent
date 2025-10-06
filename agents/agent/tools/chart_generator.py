@@ -1,50 +1,89 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import os
-import base64
-from io import BytesIO
-from google.adk.tools import ToolContext
+"""Utility functions that generate charts from the loaded dataset."""
 
-def generate_chart(context: ToolContext, chart_type: str, params: dict) -> dict:
-    """Gera um gráfico e retorna o caminho da imagem salva.
-    
-    Args:
-        chart_type: Tipo de gráfico ('histogram', 'scatter', 'box', 'heatmap', 'bar').
-        params: Parâmetros (ex: {'x': 'col1', 'y': 'col2', 'data': df_json}).
-    
-    Returns:
-        dict: {'status': 'success', 'image_path': path} ou error.
-    """
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Protocol
+
+
+class SupportsDataset(Protocol):
+    session: Any
+
+
+def _get_dataset(context: SupportsDataset):
     try:
-        if 'current_dataset' not in context.session.state:
-            return {'status': 'error', 'error_message': 'Dataset não carregado.'}
-        df_json = context.session.state['current_dataset']
-        df = pd.read_json(df_json, orient='records')
-        
-        fig = None
-        if chart_type == 'histogram':
-            column = params['column']
-            fig = px.histogram(df, x=column)
-        elif chart_type == 'scatter':
-            x, y = params['x'], params['y']
-            fig = px.scatter(df, x=x, y=y)
-        elif chart_type == 'box':
-            column = params['column']
-            fig = px.box(df, y=column)
-        elif chart_type == 'heatmap':
-            corr = df.corr()
-            fig = px.imshow(corr)
-        elif chart_type == 'bar':
-            x, y = params['x'], params['y']
-            fig = px.bar(df, x=x, y=y)
+        import pandas as pd
+    except ModuleNotFoundError as exc:  # pragma: no cover - environment limitation
+        raise ModuleNotFoundError("pandas é necessário para generate_chart") from exc
+
+    session_state = getattr(context, "session", None)
+    if session_state is None:
+        return None
+    state = getattr(session_state, "state", None)
+    if not isinstance(state, dict):
+        return None
+    dataset_json = state.get("current_dataset")
+    if dataset_json is None:
+        return None
+    return pd.read_json(dataset_json, orient="records")
+
+
+def generate_chart(
+    context: SupportsDataset,
+    chart_type: str,
+    column_x: str | None = None,
+    column_y: str | None = None,
+    output_path: str | None = None,
+) -> dict[str, Any]:
+    """Gera visualizações a partir do dataset atual."""
+
+    try:
+        df = _get_dataset(context)
+    except ModuleNotFoundError as exc:
+        return {"status": "error", "error_message": str(exc)}
+
+    if df is None:
+        return {"status": "error", "error_message": "Dataset não carregado."}
+
+    if output_path is None:
+        output_path = "chart.png"
+
+    path = Path(output_path)
+
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:  # pragma: no cover - environment limitation
+        return {"status": "error", "error_message": str(exc)}
+
+    plt.figure()
+
+    try:
+        if chart_type == "histogram" and column_x:
+            df[column_x].plot(kind="hist")
+        elif chart_type == "scatter" and column_x and column_y:
+            df.plot(kind="scatter", x=column_x, y=column_y)
+        elif chart_type == "box" and column_x:
+            df.boxplot(column=column_x)
+        elif chart_type == "heatmap":
+            plt.imshow(df.corr(), cmap="viridis", interpolation="nearest")
+            plt.colorbar()
+        elif chart_type == "bar" and column_x:
+            df[column_x].value_counts().plot(kind="bar")
         else:
-            return {'status': 'error', 'error_message': 'Tipo de gráfico inválido.'}
-        
-        temp_dir = 'temp_files'
-        os.makedirs(temp_dir, exist_ok=True)
-        image_path = os.path.join(temp_dir, f"chart_{os.urandom(4).hex()}.png")
-        fig.write_image(image_path)
-        return {'status': 'success', 'image_path': image_path}
-    except Exception as e:
-        return {'status': 'error', 'error_message': str(e)}
+            return {"status": "error", "error_message": "Configuração inválida de gráfico."}
+
+        plt.tight_layout()
+        plt.savefig(path)
+    except Exception as exc:  # pragma: no cover - relies on plotting backend
+        return {"status": "error", "error_message": str(exc)}
+    finally:
+        plt.close()
+
+    state = getattr(getattr(context, "session", None), "state", None)
+    if isinstance(state, dict):
+        state.setdefault("generated_charts", []).append(str(path))
+
+    return {"status": "success", "path": str(path)}
+
+
+__all__ = ["generate_chart"]
